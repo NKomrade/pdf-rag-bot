@@ -139,5 +139,5 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 ## ✨ Author
 
-Made by \Nitin Kumar Singh — contributions welcome!
+Made by Nitin Kumar Singh — contributions welcome!
 
