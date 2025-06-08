@@ -1,4 +1,3 @@
-````markdown
 # 🧠 PDF RAG Chatbot
 
 A **RAG (Retrieval-Augmented Generation)** chatbot built with **Next.js**, which allows users to upload PDF files and ask questions about their content using AI-powered language models and vector search.
@@ -21,7 +20,6 @@ A **RAG (Retrieval-Augmented Generation)** chatbot built with **Next.js**, which
 ```bash
 git clone https://github.com/NKomrade/pdf-rag-bot.git
 cd pdf-rag-bot
-````
 
 ### 2. Install dependencies
 
