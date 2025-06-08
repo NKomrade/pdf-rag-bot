@@ -1,5 +1,3 @@
-Here's a `README.md` file for your **PDF RAG Chatbot** project using Next.js, Pinecone, Hugging Face, and MongoDB:
-
 ---
 
 ````markdown
@@ -23,8 +21,8 @@ A **RAG (Retrieval-Augmented Generation)** chatbot built with **Next.js**, which
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/pdf-rag-chatbot.git
-cd pdf-rag-chatbot
+git clone https://github.com/NKomrade/pdf-rag-bot.git
+cd pdf-rag-bot
 ````
 
 ### 2. Install dependencies
