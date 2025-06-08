@@ -80,7 +80,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 ## 📸 Screenshot
 
-![Rag Bot Preview](/ragnarok.png)
+![Rag Bot Preview](/public/ragnarok.png)
 
 ---
 
