@@ -1,5 +1,3 @@
----
-
 ````markdown
 # 🧠 PDF RAG Chatbot
 
