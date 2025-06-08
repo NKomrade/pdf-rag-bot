@@ -20,6 +20,7 @@ A **RAG (Retrieval-Augmented Generation)** chatbot built with **Next.js**, which
 ```bash
 git clone https://github.com/NKomrade/pdf-rag-bot.git
 cd pdf-rag-bot
+```
 
 ### 2. Install dependencies
 
