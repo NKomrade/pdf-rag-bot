@@ -74,7 +74,6 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 | **Pinecone**     | Vector similarity search                       |
 | **MongoDB**      | Store PDF metadata and chat history (optional) |
 | **Formidable**   | For handling PDF uploads                       |
-| **Axios**        | API communication between frontend and backend |
 
 ---
 
@@ -82,6 +81,14 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 ```
 .
+├── app/
+│   ├── layout.tsx
+|   ├── page.tsx
+│   └── api/
+│       ├── query/
+|           └─route.ts
+│       └── query/
+|           └─route.ts
 ├── components/
 │   ├── ChatWindow.tsx
 │   ├── MessageBubble.tsx
@@ -95,14 +102,10 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ├── models/
 │   ├── message.ts
 │   └── pdfMetadata.ts
-├── pages/
-│   ├── index.tsx
-│   └── api/
-│       ├── upload.ts
-│       └── query.ts
 ├── public/
 ├── styles/
 ├── .env.example
+├── .env.local
 ├── package.json
 └── README.md
 ```
