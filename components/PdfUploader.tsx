@@ -21,14 +21,22 @@ export default function PdfUploader({ onUploadComplete }: PdfUploaderProps) {
     setIsUploading(true);
     setUploadStatus('');    try {
       const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/upload', {
+      formData.append('file', file);      const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
 
+      console.log('Upload response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Upload API Error:', errorText);
+        setUploadStatus(`Upload failed: ${response.status} - ${errorText}`);
+        return;
+      }
+
       const data = await response.json();
+      console.log('Upload response data:', data);
 
       if (response.ok) {
         setUploadStatus('PDF uploaded and processed successfully!');

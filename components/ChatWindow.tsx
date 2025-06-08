@@ -26,9 +26,8 @@ export default function ChatWindow({ messages, setMessages }: ChatWindowProps) {
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setInput('');
-
-    try {      // Call the chat API with the user's question
+    setInput('');    try {
+      // Call the chat API with the user's question
       const response = await fetch('/api/query', {
         method: 'POST',
         headers: {
@@ -43,11 +42,16 @@ export default function ChatWindow({ messages, setMessages }: ChatWindowProps) {
         }),
       });
 
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to get response from AI');
+        const errorText = await response.text();
+        console.error('API Error Response:', errorText);
+        throw new Error(`API Error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('API Response data:', data);
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -61,7 +65,7 @@ export default function ChatWindow({ messages, setMessages }: ChatWindowProps) {
       console.error('Error getting AI response:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: 'Sorry, there was an error processing your request. Please try again.',
+        content: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
         role: 'assistant',
         timestamp: new Date(),
       };
