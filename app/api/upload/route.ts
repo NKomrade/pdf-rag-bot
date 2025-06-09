@@ -123,13 +123,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Hugging Face API key not configured' }, { status: 500 });
     }
 
-    console.log('3. Setting up temp directory...');
-    const tempDir = path.join(process.cwd(), 'temp');
-    if (!fs.existsSync(tempDir)) {
-      await mkdir(tempDir, { recursive: true });
-    }
-
-    console.log('4. Saving file temporarily...');
+  console.log('3. Setting up temp directory...');
+  // Use /tmp for serverless environments, temp for local
+  const tempDir = process.env.NODE_ENV === 'production' 
+    ? '/tmp' 
+    : path.join(process.cwd(), 'temp');
+    
+  if (!fs.existsSync(tempDir)) {
+    await mkdir(tempDir, { recursive: true });
+  }    console.log('4. Saving file temporarily...');
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const tempPath = path.join(tempDir, `${Date.now()}-${file.name}`);
