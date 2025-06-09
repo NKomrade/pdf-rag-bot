@@ -3,7 +3,7 @@ import { queryVectors } from '@/lib/vectorStore';
 import { callLLM } from '@/lib/llm';
 
 interface RelevantDocument {
-  pageContent: string;
+  pageContent: string | undefined;
   similarity?: number;
   metadata?: {
     filename?: string;
