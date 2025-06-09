@@ -53,7 +53,7 @@ export class HuggingFaceEmbeddings {
       
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorData = (error as any)?.response?.data;
+      const errorData = (error as { response?: { data?: unknown } })?.response?.data;
       console.error('❌ Error creating embedding:', errorData || errorMessage);
       // Return zero vector as fallback
       console.log('⚠️ Using zero vector as fallback');

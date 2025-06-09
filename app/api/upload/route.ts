@@ -170,8 +170,7 @@ export async function POST(req: Request) {
       const storageResult = await storeChunksWithEmbeddings(docsWithMetadata, embeddings);
 
       // Check final storage status
-      console.log('\n📊 === FINAL STORAGE STATUS ===');
-      if (process.env.MONGODB_URI) {
+      console.log('\n📊 === FINAL STORAGE STATUS ===');      if (process.env.MONGODB_URI) {
         try {
           const client = new MongoClient(process.env.MONGODB_URI!, { connectTimeoutMS: 5000 });
           await client.connect();
@@ -180,7 +179,7 @@ export async function POST(req: Request) {
           const mongoCount = await collection.countDocuments();
           await client.close();
           console.log(`MongoDB: ✅ ${mongoCount} total chunks`);
-        } catch (error) {
+        } catch {
           console.log(`MongoDB: ❌ Connection failed`);
         }
       }
