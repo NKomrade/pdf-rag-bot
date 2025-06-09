@@ -3,6 +3,14 @@ import path from 'path';
 import fs from 'fs';
 import { readFile } from 'fs/promises';
 
+interface ChunkData {
+  pageContent?: string;
+  metadata?: {
+    filename?: string;
+    uploadedAt?: string;
+  };
+}
+
 const STORAGE_FILE = path.join(process.cwd(), 'temp', 'chunks.json');
 
 async function checkMongoDB() {
@@ -44,11 +52,11 @@ async function checkLocalStorage() {
   try {
     if (fs.existsSync(STORAGE_FILE)) {
       const fileContent = await readFile(STORAGE_FILE, 'utf-8');
-      const chunks = JSON.parse(fileContent);
+      const chunks: ChunkData[] = JSON.parse(fileContent);
       return {
         available: true,
         count: chunks.length,
-        samples: chunks.slice(0, 2).map((chunk: any) => ({
+        samples: chunks.slice(0, 2).map((chunk: ChunkData) => ({
           filename: chunk.metadata?.filename,
           textPreview: chunk.pageContent?.substring(0, 100) + '...',
           uploadedAt: chunk.metadata?.uploadedAt

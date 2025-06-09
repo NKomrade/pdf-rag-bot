@@ -1,11 +1,3 @@
-// import { ChatOpenAI } from 'langchain/chat_models/openai';
-
-// export const llm = new ChatOpenAI({
-//   openAIApiKey: process.env.OPENAI_API_KEY,
-//   temperature: 0.7,
-// });
-
-import axios from 'axios';
 import OpenAI from 'openai';
 
 // Initialize OpenAI client with OpenRouter
@@ -34,15 +26,15 @@ export const callOpenAILLM = async (prompt: string): Promise<string> => {
       ],
       max_tokens: 500,
       temperature: 0.7,
-    });
-
-    const response = completion.choices[0]?.message?.content || '';
+    });    const response = completion.choices[0]?.message?.content || '';
     console.log('✅ Got response from OpenAI LLM:', response.substring(0, 100) + '...');
     return response;
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error calling OpenAI LLM:', error);
-    console.error('Error details:', error.response?.data || error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorData = (error as { response?: { data?: unknown } })?.response?.data;
+    console.error('Error details:', errorData || errorMessage);
     throw error;
   }
 };
@@ -77,23 +69,21 @@ export const callFlanT5 = async (prompt: string): Promise<string> => {
 
     const data = await response.json();
     const result = Array.isArray(data) ? data[0]?.generated_text || '' : data.generated_text || '';
-    
-    console.log('✅ Got response from Flan-T5:', result.substring(0, 100) + '...');
+      console.log('✅ Got response from Flan-T5:', result.substring(0, 100) + '...');
     return result;
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Error calling Flan-T5:', error);
     throw error;
   }
 };
 
 // Main LLM function with fallback
-export const callLLM = async (prompt: string): Promise<string> => {
-  // Try OpenAI first
+export const callLLM = async (prompt: string): Promise<string> => {  // Try OpenAI first
   if (process.env.OPENAI_API_KEY) {
     try {
       return await callOpenAILLM(prompt);
-    } catch (error) {
+    } catch {
       console.log('⚠️ OpenAI failed, trying Hugging Face...');
     }
   }

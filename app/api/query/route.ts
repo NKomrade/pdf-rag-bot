@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { queryVectors } from '@/lib/vectorStore';
 import { callLLM } from '@/lib/llm';
 
+interface RelevantDocument {
+  pageContent: string;
+  similarity?: number;
+  metadata?: {
+    filename?: string;
+    [key: string]: unknown;
+  };
+}
+
 
 export async function POST(req: NextRequest) {
-  let query = '';
-  try {
+  let query = '';  try {
     const body = await req.json();
-    const { query: userQuery, conversationHistory = [] } = body;
+    const { query: userQuery } = body;
     query = userQuery;
 
     if (!query) {
@@ -28,13 +36,12 @@ export async function POST(req: NextRequest) {
         console.log('📄 Vector search results:', relevantDocs?.length || 0);
         console.log('📄 Full search results:', relevantDocs);
           if (relevantDocs && relevantDocs.length > 0) {
-          console.log(`✅ Found ${relevantDocs.length} relevant document chunks`);
-          console.log('Sample chunk:', relevantDocs[0]?.pageContent?.substring(0, 200) + '...');
-          console.log('Similarity scores:', relevantDocs.map((doc: any) => doc.similarity?.toFixed(3)));
+          console.log(`✅ Found ${relevantDocs.length} relevant document chunks`);          console.log('Sample chunk:', relevantDocs[0]?.pageContent?.substring(0, 200) + '...');
+          console.log('Similarity scores:', relevantDocs.map((doc: RelevantDocument) => doc.similarity?.toFixed(3)));
           
           // Build context from relevant documents
           const context = relevantDocs
-            .map((doc: any) => doc.pageContent)
+            .map((doc: RelevantDocument) => doc.pageContent)
             .join('\n\n');
 
           // Build prompt for Hugging Face model
@@ -77,12 +84,11 @@ Answer:`;          console.log('🤖 Sending to LLM...');
       
       return NextResponse.json({ 
         response: 'The document search system is not properly configured. Please check the environment variables.' 
-      });
-    }
+      });    }
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Query error:', error);
-    console.error('Error details:', error.message);
+    console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
     
     return NextResponse.json({ 
       response: `I apologize, but I'm currently experiencing technical difficulties. I received your question "${query}" but couldn't process it properly. Please try again later.`

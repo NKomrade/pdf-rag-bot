@@ -7,6 +7,16 @@ import path from 'path';
 import fs from 'fs';
 import { MongoClient } from 'mongodb';
 
+interface ChunkData {
+  pageContent: string;
+  metadata: {
+    filename: string;
+    chunkIndex: number;
+    uploadedAt: string;
+    [key: string]: unknown;
+  };
+}
+
 // File-based storage as backup
 const STORAGE_FILE = path.join(process.cwd(), 'temp', 'chunks.json');
 
@@ -17,7 +27,7 @@ async function ensureStorageDir() {
   }
 }
 
-async function storeChunksWithEmbeddings(chunks: any[], embeddings: number[][]) {
+async function storeChunksWithEmbeddings(chunks: ChunkData[], embeddings: number[][]) {
   console.log('🔄 Storing chunks with embeddings...');
   
   // Try MongoDB first
@@ -174,10 +184,9 @@ export async function POST(req: Request) {
           console.log(`MongoDB: ❌ Connection failed`);
         }
       }
-      
-      if (fs.existsSync(STORAGE_FILE)) {
+        if (fs.existsSync(STORAGE_FILE)) {
         const localContent = await readFile(STORAGE_FILE, 'utf-8');
-        const localChunks = JSON.parse(localContent);
+        const localChunks: ChunkData[] = JSON.parse(localContent);
         console.log(`Local File: ✅ ${localChunks.length} total chunks`);
       }
       console.log('=== END STORAGE STATUS ===\n');      return NextResponse.json({ 

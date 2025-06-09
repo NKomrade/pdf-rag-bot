@@ -4,10 +4,22 @@ import { readFile } from 'fs/promises';
 import { HuggingFaceEmbeddings, cosineSimilarity } from '@/lib/embeddings';
 import { MongoClient } from 'mongodb';
 
+interface DocumentChunk {
+  text?: string;
+  pageContent?: string;
+  embedding?: number[];
+  metadata?: {
+    filename?: string;
+    [key: string]: unknown;
+  };
+  id?: string;
+  createdAt?: Date;
+}
+
 // File-based storage path
 const STORAGE_FILE = path.join(process.cwd(), 'temp', 'chunks.json');
 
-async function loadChunksFromFile() {
+async function loadChunksFromFile(): Promise<DocumentChunk[]> {
   try {
     if (fs.existsSync(STORAGE_FILE)) {
       const fileContent = await readFile(STORAGE_FILE, 'utf-8');
@@ -20,7 +32,7 @@ async function loadChunksFromFile() {
   }
 }
 
-async function queryMongoDB() {
+async function queryMongoDB(): Promise<DocumentChunk[]> {
   try {
     console.log('🔄 Attempting MongoDB connection...');
     const client = new MongoClient(process.env.MONGODB_URI!, {
@@ -36,7 +48,7 @@ async function queryMongoDB() {
     const allChunks = await collection.find({}).toArray();
     await client.close();
     
-    return allChunks;
+    return allChunks as DocumentChunk[];
   } catch (error) {
     console.error('❌ MongoDB query failed:', error);
     throw error;
@@ -45,11 +57,10 @@ async function queryMongoDB() {
 
 // Function to query vectors for RAG using semantic similarity
 export const queryVectors = async (query: string, topK: number = 5) => {
-  try {
-    console.log('🔍 Querying for relevant documents using vector similarity...');
+  try {    console.log('🔍 Querying for relevant documents using vector similarity...');
     console.log('Query:', query);
 
-    let allChunks: any[] = [];
+    let allChunks: DocumentChunk[] = [];
     let sourceMethod = '';
 
     // Try MongoDB first
@@ -58,7 +69,7 @@ export const queryVectors = async (query: string, topK: number = 5) => {
         allChunks = await queryMongoDB();
         sourceMethod = 'MongoDB';
         console.log(`📄 Found ${allChunks.length} chunks in MongoDB`);
-      } catch (mongoError) {
+      } catch {
         console.log('⚠️ MongoDB failed, trying local storage...');
         allChunks = await loadChunksFromFile();
         sourceMethod = 'Local File';
@@ -82,13 +93,12 @@ export const queryVectors = async (query: string, topK: number = 5) => {
       console.log('🔄 Creating query embedding for semantic search...');
       const embeddingService = new HuggingFaceEmbeddings();
       const queryEmbedding = await embeddingService.createEmbedding(query);
-      
-      console.log('🔍 Calculating cosine similarities...');
+        console.log('🔍 Calculating cosine similarities...');
       const similarities = allChunks
         .filter(chunk => chunk.embedding && Array.isArray(chunk.embedding))
         .map(chunk => ({
           ...chunk,
-          similarity: cosineSimilarity(queryEmbedding, chunk.embedding)
+          similarity: cosineSimilarity(queryEmbedding, chunk.embedding!)
         }))
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, topK);

@@ -48,13 +48,13 @@ export class HuggingFaceEmbeddings {
 
       if (!Array.isArray(embedding) || embedding.length === 0) {
         throw new Error('Invalid embedding received from Hugging Face');
-      }
-
-      console.log(`✅ Embedding created successfully (${embedding.length} dimensions)`);
+      }      console.log(`✅ Embedding created successfully (${embedding.length} dimensions)`);
       return embedding;
       
-    } catch (error: any) {
-      console.error('❌ Error creating embedding:', error.response?.data || error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorData = (error as any)?.response?.data;
+      console.error('❌ Error creating embedding:', errorData || errorMessage);
       // Return zero vector as fallback
       console.log('⚠️ Using zero vector as fallback');
       return new Array(384).fill(0);
