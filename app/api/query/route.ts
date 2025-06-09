@@ -1,19 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryVectors } from '@/lib/vectorStore';
-import { callFlanT5 } from '@/lib/llm';
+import { callLLM } from '@/lib/llm';
 
-// Simple local responses for testing when no documents are available
-const generateLocalResponse = (query: string): string => {
-  const lowerQuery = query.toLowerCase();
-  
-  if (lowerQuery.includes('hello') || lowerQuery.includes('hi')) {
-    return "Hello! I'm your AI assistant. I can help you with questions about your uploaded documents.";
-  } else if (lowerQuery.includes('how are you')) {
-    return "I'm doing well, thank you! I'm here to help you analyze and understand your PDF documents.";
-  } else {
-    return `I'd be happy to help you with "${query}". Please upload a PDF document first, and I'll be able to provide detailed answers based on its content.`;
-  }
-};
 
 export async function POST(req: NextRequest) {
   let query = '';
@@ -24,20 +12,22 @@ export async function POST(req: NextRequest) {
 
     if (!query) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
-    }
-
-    console.log('🔍 Processing query:', query);
+    }    console.log('🔍 Processing query:', query);
+    console.log('Environment check:');
+    console.log('- HF Key:', !!process.env.HUGGINGFACE_API_KEY);
+    console.log('- MongoDB URI:', !!process.env.MONGODB_URI);
 
     // Try to use RAG with stored documents first
-    if (process.env.HUGGINGFACE_API_KEY && process.env.MONGODB_URI) {
+    if (process.env.HUGGINGFACE_API_KEY || process.env.MONGODB_URI) {
       try {
         console.log('🔍 Searching for relevant documents...');
+        console.log('Query details:', { query, length: query.length });
         
         // Query vector store for relevant documents
         const relevantDocs = await queryVectors(query, 3);
         console.log('📄 Vector search results:', relevantDocs?.length || 0);
-        
-        if (relevantDocs && relevantDocs.length > 0) {
+        console.log('📄 Full search results:', relevantDocs);
+          if (relevantDocs && relevantDocs.length > 0) {
           console.log(`✅ Found ${relevantDocs.length} relevant document chunks`);
           console.log('Sample chunk:', relevantDocs[0]?.pageContent?.substring(0, 200) + '...');
           console.log('Similarity scores:', relevantDocs.map((doc: any) => doc.similarity?.toFixed(3)));
@@ -55,12 +45,10 @@ ${context}
 
 Question: ${query}
 
-Answer:`;
-
-          console.log('🤖 Sending to Hugging Face Flan-T5 model...');
-          // Use Hugging Face model for response generation
-          const response = await callFlanT5(prompt);
-          console.log('✅ Got response from Flan-T5 model:', response?.substring(0, 100) + '...');
+Answer:`;          console.log('🤖 Sending to LLM...');
+          // Use LLM for response generation (OpenAI first, then HF fallback)
+          const response = await callLLM(prompt);
+          console.log('✅ Got response from LLM:', response?.substring(0, 100) + '...');
           
           if (response && response.trim().length > 0) {
             return NextResponse.json({ response });
@@ -73,7 +61,7 @@ Answer:`;
         } else {
           console.log('❌ No relevant documents found in vector store');
           return NextResponse.json({ 
-            response: `I couldn't find any relevant information in the uploaded documents for "${query}". Please make sure you've uploaded a PDF that contains information related to your question.` 
+            response: `I couldn't find any relevant information in the uploaded documents for "${query}". Please make sure you've uploaded a PDF that contains information related to your question. Try asking about the main topics or using keywords from the document.` 
           });
         }
       } catch (error) {

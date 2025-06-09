@@ -15,6 +15,8 @@ interface ChatWindowProps {
 
 export default function ChatWindow({ messages, setMessages }: ChatWindowProps) {
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -23,10 +25,11 @@ export default function ChatWindow({ messages, setMessages }: ChatWindowProps) {
       content: input,
       role: 'user',
       timestamp: new Date(),
-    };
+    };    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');    try {
+    try {
       // Call the chat API with the user's question
       const response = await fetch('/api/query', {
         method: 'POST',
@@ -67,9 +70,10 @@ export default function ChatWindow({ messages, setMessages }: ChatWindowProps) {
         id: (Date.now() + 1).toString(),
         content: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
         role: 'assistant',
-        timestamp: new Date(),
-      };
+        timestamp: new Date(),      };
       setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
   };
   return (
@@ -85,15 +89,22 @@ export default function ChatWindow({ messages, setMessages }: ChatWindowProps) {
               <p className="text-lg font-medium">Start a conversation</p>
               <p className="text-sm">Upload a PDF and ask questions about it</p>
             </div>
-          </div>
-        ) : (
-          messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))
+          </div>        ) : (
+          <>
+            {messages.map((msg) => (
+              <MessageBubble key={msg.id} message={msg} />
+            ))}
+            {isLoading && (
+              <div className="flex justify-start mb-4">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span className="text-sm">RAG-n-ROCK is thinking...</span>
+                </div>
+              </div>
+            )}
+          </>
         )}
-      </div>
-      
-      {/* Input Area */}
+      </div>{/* Input Area */}
       <div className="border-t border-gray-200 bg-black p-4">
         <div className="flex gap-3 items-end">
           <div className="flex-1 relative">
@@ -115,15 +126,18 @@ export default function ChatWindow({ messages, setMessages }: ChatWindowProps) {
                 </svg>
               </button>
             )}
-          </div>
-          <button
+          </div>          <button
             onClick={handleSend}
-            disabled={!input.trim()}
-            className="p-3 bg-gradient-to-r from-black to-white/50 text-white rounded-xl hover:from-white/50 hover:to-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer duration-200 shadow-lg hover:shadow-xl"
+            disabled={isLoading || !input.trim()}
+            className={`p-3 rounded-xl transition-colors cursor-pointer duration-200 shadow-lg hover:shadow-xl ${
+              isLoading || !input.trim()
+                ? 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-50' 
+                : 'bg-gradient-to-r from-black to-white/50 text-white hover:from-white/50 hover:to-black'
+            }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
           </button>
         </div>
       </div>

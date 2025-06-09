@@ -8,7 +8,6 @@ interface PdfUploaderProps {
 export default function PdfUploader({ onUploadComplete }: PdfUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>('');
-
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -19,9 +18,13 @@ export default function PdfUploader({ onUploadComplete }: PdfUploaderProps) {
     }
 
     setIsUploading(true);
-    setUploadStatus('');    try {
+    setUploadStatus('Uploading and processing PDF...');
+    
+    try {
       const formData = new FormData();
-      formData.append('file', file);      const response = await fetch('/api/upload', {
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -40,7 +43,7 @@ export default function PdfUploader({ onUploadComplete }: PdfUploaderProps) {
 
       if (response.ok) {
         setUploadStatus('PDF uploaded and processed successfully!');
-        onUploadComplete(`PDF "${data.filename}" has been uploaded and processed. You can now ask questions about it.`);
+        onUploadComplete(`PDF "${data.filename}" has been uploaded and processed with ${data.chunks} chunks. You can now ask questions about it.`);
       } else {
         setUploadStatus(data.error || 'Failed to upload PDF');
       }
@@ -71,15 +74,19 @@ export default function PdfUploader({ onUploadComplete }: PdfUploaderProps) {
               strokeLinejoin="round"
             />
           </svg>
-          
-          <div>
+            <div>
             <label htmlFor="pdf-upload" className="cursor-pointer">
-              <span className="text-white font-medium">
-                {isUploading ? 'Processing PDF...' : 'Choose PDF file'}
-              </span>
-              <span className="block text-sm text-gray-400 mt-1">
-                Maximum file size: 10MB
-              </span>
+              {isUploading ? (
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                  <span className="text-sm text-gray-400">Processing PDF...</span>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <span className="text-white font-medium">Choose PDF file</span>
+                  <span className="block text-sm text-gray-400 mt-1">Maximum file size: 10MB</span>
+                </div>
+              )}
             </label>
             <input
               id="pdf-upload"
@@ -90,21 +97,14 @@ export default function PdfUploader({ onUploadComplete }: PdfUploaderProps) {
               onChange={handleFileUpload}
               disabled={isUploading}
             />
-          </div>
-          
-          {isUploading && (
-            <div className="flex justify-center">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-            </div>
-          )}
-        </div>
+          </div>        </div>
       </div>
       
       {uploadStatus && (
         <div className={`text-sm p-3 rounded ${
           uploadStatus.includes('successfully') 
             ? 'bg-black text-green-300 border border-green-600' 
-            : 'bg-black text-red-300 border border-red-600'
+            : 'bg-black text-white'
         }`}>
           {uploadStatus}
         </div>
