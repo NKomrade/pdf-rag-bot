@@ -41,57 +41,77 @@ async function storeChunksWithEmbeddings(chunks: ChunkData[], embeddings: number
       
       await client.connect();
       const db = client.db('rag_chatbot');
-      const collection = db.collection('document_chunks');
+      const collection = db.collection('document_chunks');      // Create a new document entry with unique ID for each upload
+      const filename = chunks[0].metadata.filename;
+      const timestamp = Date.now();
+      const uniqueDocumentId = `${filename}-${timestamp}`;
       
-      // Clear previous documents before inserting new ones
-      console.log('🧹 Clearing previous document chunks...');
-      await collection.deleteMany({});
-      console.log('✅ Previous chunks cleared from MongoDB');
+      console.log(`📄 Creating new document entry for "${filename}" with ID: ${uniqueDocumentId}...`);
+      // Create a new document with all chunks and unique ID
+      const document = {
+        documentId: uniqueDocumentId,
+        filename: filename,
+        chunks: chunks.map((chunk, index) => ({
+          text: chunk.pageContent,
+          embedding: embeddings[index],
+          metadata: {
+            ...chunk.metadata,
+            uploadedAt: new Date().toISOString(),
+            documentId: uniqueDocumentId
+          },
+          chunkIndex: index
+        })),
+        totalChunks: chunks.length,
+        createdAt: new Date(),
+        uploadTimestamp: timestamp
+      };      const result = await collection.insertOne(document);
+      console.log(`✅ Created new document "${filename}" with ${chunks.length} chunks`);
+      console.log(`📋 Document ID: ${result.insertedId}`);
+      console.log(`📋 Document Unique ID: ${uniqueDocumentId}`);
       
-      const documents = chunks.map((chunk, index) => ({
-        id: `${chunk.metadata.filename}-${index}-${Date.now()}`,
-        text: chunk.pageContent,
-        embedding: embeddings[index],
-        metadata: chunk.metadata,
-        createdAt: new Date()
-      }));
-      
-      await collection.insertMany(documents);
       await client.close();
       
-      console.log(`✅ Stored ${documents.length} chunks with embeddings in MongoDB`);
-      return { method: 'MongoDB', count: documents.length };
+      console.log(`✅ Stored ${chunks.length} chunks with embeddings in MongoDB`);
+      return { method: 'MongoDB', count: chunks.length, documentId: uniqueDocumentId };
       
     } catch (mongoError) {
       console.error('❌ MongoDB storage failed:', mongoError);
       console.log('⚠️ Falling back to local storage...');
     }
-  }
-    // Fallback to local storage
+  }    // Fallback to local storage
   try {
     await ensureStorageDir();
-    
-    // Clear previous local storage before adding new chunks
-    console.log('🧹 Clearing previous local chunks...');
+      // Load existing documents to preserve them
+    let existingDocuments: any[] = [];
     if (fs.existsSync(STORAGE_FILE)) {
-      await writeFile(STORAGE_FILE, JSON.stringify([], null, 2));
+      const existingContent = await readFile(STORAGE_FILE, 'utf-8');
+      existingDocuments = JSON.parse(existingContent);
+      console.log(`📄 Found ${existingDocuments.length} existing chunks in local storage`);
     }
-    console.log('✅ Previous chunks cleared from local storage');
     
-    const documents = chunks.map((chunk, index) => ({
-      id: `${chunk.metadata.filename}-${index}-${Date.now()}`,
+    const filename = chunks[0].metadata.filename;
+    const timestamp = Date.now();
+    const uniqueDocumentId = `${filename}-${timestamp}`;
+    const newDocuments = chunks.map((chunk, index) => ({
+      id: `${chunk.metadata.filename}-${index}-${timestamp}`,
       text: chunk.pageContent,
       pageContent: chunk.pageContent, // For compatibility
       embedding: embeddings[index],
-      metadata: chunk.metadata,
-      createdAt: new Date()
+      metadata: {
+        ...chunk.metadata,
+        uploadedAt: new Date().toISOString(),
+        documentId: uniqueDocumentId
+      },
+      createdAt: new Date(),
+      documentId: uniqueDocumentId
     }));
     
-    // Store only new chunks (no appending)
-    await writeFile(STORAGE_FILE, JSON.stringify(documents, null, 2));
-    
-    console.log(`✅ Stored ${documents.length} chunks with embeddings in local file`);
-    return { method: 'Local File', count: documents.length };
+    // Combine existing documents with new ones
+    const allDocuments = [...existingDocuments, ...newDocuments];
+    await writeFile(STORAGE_FILE, JSON.stringify(allDocuments, null, 2));
+      console.log(`✅ Stored ${newDocuments.length} new chunks with embeddings in local file`);
+    console.log(`📊 Total chunks in local storage: ${allDocuments.length}`);
+    return { method: 'Local File', count: newDocuments.length, documentId: uniqueDocumentId };
     
   } catch (error) {
     console.error('❌ Local storage also failed:', error);
@@ -113,10 +133,8 @@ export async function POST(req: Request) {
 
     if (file.type !== 'application/pdf') {
       return NextResponse.json({ error: 'File must be a PDF' }, { status: 400 });
-    }
-
-    console.log(`📄 Processing new document: "${file.name}"`);
-    console.log('🔄 This will replace any previously uploaded document');
+    }    console.log(`📄 Processing new document: "${file.name}"`);
+    console.log('🔄 This will be stored alongside any existing documents');
 
     console.log('2. Checking environment variables...');
     if (!process.env.HUGGINGFACE_API_KEY) {
@@ -169,9 +187,7 @@ export async function POST(req: Request) {
       const embeddings = await embeddingService.createEmbeddings(texts);
 
       console.log('9. Storing chunks with embeddings...');
-      const storageResult = await storeChunksWithEmbeddings(docsWithMetadata, embeddings);
-
-      // Check final storage status
+      const storageResult = await storeChunksWithEmbeddings(docsWithMetadata, embeddings);      // Check final storage status
       console.log('\n📊 === FINAL STORAGE STATUS ===');      if (process.env.MONGODB_URI) {
         try {
           const client = new MongoClient(process.env.MONGODB_URI!, { connectTimeoutMS: 5000 });
@@ -179,27 +195,33 @@ export async function POST(req: Request) {
           const db = client.db('rag_chatbot');
           const collection = db.collection('document_chunks');
           const mongoCount = await collection.countDocuments();
+          const totalChunks = await collection.aggregate([
+            { $group: { _id: null, totalChunks: { $sum: "$totalChunks" } } }
+          ]).toArray();
+          const totalChunkCount = totalChunks[0]?.totalChunks || 0;
           await client.close();
-          console.log(`MongoDB: ✅ ${mongoCount} total chunks`);
+          console.log(`MongoDB: ✅ ${mongoCount} documents with ${totalChunkCount} total chunks`);
         } catch {
           console.log(`MongoDB: ❌ Connection failed`);
         }
-      }
-        if (fs.existsSync(STORAGE_FILE)) {
+      }        if (fs.existsSync(STORAGE_FILE)) {
         const localContent = await readFile(STORAGE_FILE, 'utf-8');
-        const localChunks: ChunkData[] = JSON.parse(localContent);
-        console.log(`Local File: ✅ ${localChunks.length} total chunks`);
+        const localChunks = JSON.parse(localContent);
+        const uniqueFilenames = new Set(localChunks.map((chunk: any) => chunk.metadata?.filename).filter(Boolean));
+        console.log(`Local File: ✅ ${localChunks.length} total chunks from ${uniqueFilenames.size} documents`);
       }
       console.log('=== END STORAGE STATUS ===\n');      return NextResponse.json({ 
-        message: `New PDF "${file.name}" uploaded and processed successfully using ${storageResult.method}. Previous document data has been replaced.`,
+        message: `New PDF "${file.name}" uploaded and processed successfully using ${storageResult.method}. Document stored alongside existing documents.`,
         filename: file.name,
         size: file.size,
         chunks: docsWithMetadata.length,
         pages: docs.length,
         stored: storageResult.count,
         storageMethod: storageResult.method,
+        documentId: storageResult.documentId,
         embeddingsCreated: true,
-        note: 'Document chunks with vector embeddings are ready for semantic search. Previous document has been replaced.'
+        note: 'Document chunks with vector embeddings are ready for semantic search. All documents are available for LLM context.',
+        apiEndpoint: `/api/documents/${storageResult.documentId}`
       });
 
     } finally {

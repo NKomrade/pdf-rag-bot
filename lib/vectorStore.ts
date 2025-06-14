@@ -45,10 +45,27 @@ async function queryMongoDB(): Promise<DocumentChunk[]> {
     const collection = db.collection('document_chunks');
     
     console.log('📊 Fetching document chunks from MongoDB...');
-    const allChunks = await collection.find({}).toArray();
+    const documents = await collection.find({}).toArray();
     await client.close();
     
-    return allChunks as DocumentChunk[];
+    // Flatten all chunks from all documents
+    const allChunks: DocumentChunk[] = [];
+    documents.forEach(doc => {
+      if (doc.chunks && Array.isArray(doc.chunks)) {
+        doc.chunks.forEach((chunk: any) => {
+          allChunks.push({
+            text: chunk.text,
+            pageContent: chunk.text,
+            embedding: chunk.embedding,
+            metadata: chunk.metadata,
+            id: `${doc.id}-chunk-${chunk.chunkIndex}`,
+            createdAt: doc.createdAt
+          });
+        });
+      }
+    });
+    
+    return allChunks;
   } catch (error) {
     console.error('❌ MongoDB query failed:', error);
     throw error;

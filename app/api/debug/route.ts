@@ -24,8 +24,7 @@ async function checkMongoDB() {
     await client.connect();
     const db = client.db('rag_chatbot');
     const collection = db.collection('document_chunks');
-    
-    const count = await collection.countDocuments();
+      const count = await collection.countDocuments();
     const samples = await collection.find({}).limit(2).toArray();
     
     await client.close();
@@ -33,10 +32,12 @@ async function checkMongoDB() {
     return {
       available: true,
       count,
+      totalChunks: samples.reduce((sum, doc) => sum + (doc.totalChunks || 0), 0),
       samples: samples.map(doc => ({
         id: doc.id,
-        filename: doc.metadata?.filename,
-        textPreview: doc.text?.substring(0, 100) + '...',
+        filename: doc.filename,
+        totalChunks: doc.totalChunks,
+        textPreview: doc.chunks?.[0]?.text?.substring(0, 100) + '...',
         createdAt: doc.createdAt
       }))
     };
