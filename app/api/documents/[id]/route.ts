@@ -38,8 +38,12 @@ interface DocumentGroup {
   source: string;
 }
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
-  console.log(`🔍 Fetching document chunks for ID: ${params.id}`);
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  console.log(`🔍 Fetching document chunks for ID: ${id}`);
   
   try {
     // Try MongoDB first
@@ -54,8 +58,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         await client.connect();
         const db = client.db('rag_chatbot');
         const collection = db.collection('document_chunks');
-        
-        const document = await collection.findOne({ documentId: params.id });
+          const document = await collection.findOne({ documentId: id });
         await client.close();
         
         if (document) {
@@ -82,17 +85,16 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (fs.existsSync(STORAGE_FILE)) {
       console.log('🔄 Checking local storage...');
       const localContent = await readFile(STORAGE_FILE, 'utf-8');
-      const localChunks = JSON.parse(localContent);
-        // Filter chunks by documentId
+      const localChunks = JSON.parse(localContent);      // Filter chunks by documentId
       const documentChunks = localChunks.filter((chunk: DocumentChunk) => 
-        chunk.documentId === params.id || chunk.metadata?.documentId === params.id
+        chunk.documentId === id || chunk.metadata?.documentId === id
       );
       
       if (documentChunks.length > 0) {
         console.log(`✅ Found ${documentChunks.length} chunks in local storage`);
         return NextResponse.json({
           success: true,
-          documentId: params.id,
+          documentId: id,
           filename: documentChunks[0].metadata?.filename || 'Unknown',
           chunks: documentChunks,
           totalChunks: documentChunks.length,
@@ -101,11 +103,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       }
     }
     
-    console.log(`❌ Document with ID ${params.id} not found`);
+    console.log(`❌ Document with ID ${id} not found`);
     return NextResponse.json({
       success: false,
       error: 'Document not found',
-      documentId: params.id
+      documentId: id
     }, { status: 404 });
     
   } catch (error) {
