@@ -7,6 +7,27 @@ import { HuggingFaceEmbeddings } from '@/lib/embeddings';
 
 const STORAGE_FILE = path.join(process.cwd(), 'temp', 'chunks.json');
 
+interface ChunkMetadata {
+  documentId?: string;
+  page?: number;
+  [key: string]: unknown;
+}
+
+interface DocumentChunk {
+  text?: string;
+  pageContent?: string;
+  metadata?: ChunkMetadata;
+  embedding: number[];
+  documentId?: string;
+}
+
+interface SimilarityResult {
+  index: number;
+  text: string;
+  metadata?: ChunkMetadata;
+  similarity: number;
+}
+
 function cosineSimilarity(a: number[], b: number[]): number {
   const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
   const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
@@ -43,14 +64,13 @@ async function getDocumentChunks(documentId: string) {
       console.log('⚠️ Falling back to local storage...');
     }
   }
-  
-  // Fallback to local storage
+    // Fallback to local storage
   if (fs.existsSync(STORAGE_FILE)) {
     console.log('🔄 Checking local storage...');
     const localContent = await readFile(STORAGE_FILE, 'utf-8');
-    const localChunks = JSON.parse(localContent);
+    const localChunks: DocumentChunk[] = JSON.parse(localContent);
     
-    const documentChunks = localChunks.filter((chunk: any) => 
+    const documentChunks = localChunks.filter((chunk: DocumentChunk) => 
       chunk.documentId === documentId || chunk.metadata?.documentId === documentId
     );
     
@@ -75,22 +95,20 @@ async function retrieveRelevantChunks(query: string, documentId: string, topK: n
   
   // Get document chunks
   const chunks = await getDocumentChunks(documentId);
-  
-  // Calculate similarities
+    // Calculate similarities
   console.log(`🔄 Calculating similarities with ${chunks.length} chunks...`);
-  const similarities = chunks.map((chunk: any, index: number) => ({
+  const similarities: SimilarityResult[] = chunks.map((chunk: DocumentChunk, index: number) => ({
     index,
-    text: chunk.text || chunk.pageContent,
+    text: chunk.text || chunk.pageContent || '',
     metadata: chunk.metadata,
     similarity: cosineSimilarity(queryEmbedding[0], chunk.embedding)
   }));
   
   // Sort by similarity and get top K
   similarities.sort((a: { similarity: number }, b: { similarity: number }) => b.similarity - a.similarity);
-  const topChunks = similarities.slice(0, topK);
-  
+  const topChunks = similarities.slice(0, topK);  
   console.log(`✅ Found ${topChunks.length} relevant chunks`);
-  topChunks.forEach((chunk: { similarity: number, text: string, metadata: any, index: number }, i: number) => {
+  topChunks.forEach((chunk: SimilarityResult, i: number) => {
     console.log(`   ${i + 1}. Similarity: ${chunk.similarity.toFixed(4)} - ${chunk.text.substring(0, 100)}...`);
   });
   
@@ -129,10 +147,9 @@ export async function POST(req: Request) {
         documentId
       });
     }
-    
-    // Prepare context from relevant chunks
+      // Prepare context from relevant chunks
     const context = relevantChunks
-      .map((chunk: { text: string }) => chunk.text)
+      .map((chunk: SimilarityResult) => chunk.text)
       .join('\n\n');
     
     // Create prompt for the LLM
@@ -177,8 +194,7 @@ Answer:`;
     const answer = result[0]?.generated_text || "I couldn't generate a response. Please try again.";
     
     return NextResponse.json({
-      answer,
-      sources: relevantChunks.map((chunk: { text: string, similarity: number, metadata: any }) => ({
+      answer,      sources: relevantChunks.map((chunk: SimilarityResult) => ({
         text: chunk.text.substring(0, 200) + '...',
         similarity: chunk.similarity,
         metadata: chunk.metadata

@@ -6,6 +6,38 @@ import fs from 'fs';
 
 const STORAGE_FILE = path.join(process.cwd(), 'temp', 'chunks.json');
 
+interface ChunkMetadata {
+  documentId?: string;
+  filename?: string;
+  [key: string]: unknown;
+}
+
+interface DocumentChunk {
+  text?: string;
+  pageContent?: string;
+  metadata?: ChunkMetadata;
+  embedding?: number[];
+  documentId?: string;
+  createdAt?: string;
+}
+
+interface Document {
+  documentId: string;
+  filename: string;
+  totalChunks: number;
+  createdAt?: string;
+  uploadTimestamp?: string;
+  source: string;
+}
+
+interface DocumentGroup {
+  documentId: string;
+  filename: string;
+  chunks: DocumentChunk[];
+  createdAt?: string;
+  source: string;
+}
+
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   console.log(`🔍 Fetching document chunks for ID: ${params.id}`);
   
@@ -51,9 +83,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       console.log('🔄 Checking local storage...');
       const localContent = await readFile(STORAGE_FILE, 'utf-8');
       const localChunks = JSON.parse(localContent);
-      
-      // Filter chunks by documentId
-      const documentChunks = localChunks.filter((chunk: any) => 
+        // Filter chunks by documentId
+      const documentChunks = localChunks.filter((chunk: DocumentChunk) => 
         chunk.documentId === params.id || chunk.metadata?.documentId === params.id
       );
       
@@ -88,11 +119,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 // Get all available documents
-export async function POST(req: Request) {
+export async function POST() {
   console.log('🔍 Fetching all available documents...');
   
   try {
-    const documents: any[] = [];
+    const documents: Document[] = [];
     
     // Try MongoDB first
     if (process.env.MONGODB_URI) {
@@ -135,9 +166,8 @@ export async function POST(req: Request) {
       console.log('🔄 Checking local storage...');
       const localContent = await readFile(STORAGE_FILE, 'utf-8');
       const localChunks = JSON.parse(localContent);
-      
-      // Group chunks by documentId
-      const documentGroups = localChunks.reduce((groups: any, chunk: any) => {
+        // Group chunks by documentId
+      const documentGroups = localChunks.reduce((groups: Record<string, DocumentGroup>, chunk: DocumentChunk) => {
         const docId = chunk.documentId || chunk.metadata?.documentId;
         if (docId) {
           if (!groups[docId]) {
@@ -153,8 +183,7 @@ export async function POST(req: Request) {
         }
         return groups;
       }, {});
-      
-      const localDocs = Object.values(documentGroups).map((group: any) => ({
+      const localDocs = Object.values(documentGroups as Record<string, DocumentGroup>).map((group: DocumentGroup) => ({
         documentId: group.documentId,
         filename: group.filename,
         totalChunks: group.chunks.length,

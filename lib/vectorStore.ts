@@ -16,6 +16,16 @@ interface DocumentChunk {
   createdAt?: Date;
 }
 
+interface MongoChunk {
+  text?: string;
+  embedding?: number[];
+  metadata?: {
+    filename?: string;
+    [key: string]: unknown;
+  };
+  chunkIndex?: number;
+}
+
 // File-based storage path
 const STORAGE_FILE = path.join(process.cwd(), 'temp', 'chunks.json');
 
@@ -47,12 +57,11 @@ async function queryMongoDB(): Promise<DocumentChunk[]> {
     console.log('📊 Fetching document chunks from MongoDB...');
     const documents = await collection.find({}).toArray();
     await client.close();
-    
-    // Flatten all chunks from all documents
+      // Flatten all chunks from all documents
     const allChunks: DocumentChunk[] = [];
     documents.forEach(doc => {
       if (doc.chunks && Array.isArray(doc.chunks)) {
-        doc.chunks.forEach((chunk: any) => {
+        doc.chunks.forEach((chunk: MongoChunk) => {
           allChunks.push({
             text: chunk.text,
             pageContent: chunk.text,
