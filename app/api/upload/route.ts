@@ -17,6 +17,22 @@ interface ChunkData {
   };
 }
 
+interface StoredDocument {
+  id: string;
+  text: string;
+  pageContent: string;
+  embedding: number[];
+  metadata: {
+    filename: string;
+    chunkIndex: number;
+    uploadedAt: string;
+    documentId: string;
+    [key: string]: unknown;
+  };
+  createdAt: Date;
+  documentId: string;
+}
+
 // File-based storage as backup
 const STORAGE_FILE = path.join(process.cwd(), 'temp', 'chunks.json');
 
@@ -80,9 +96,8 @@ async function storeChunksWithEmbeddings(chunks: ChunkData[], embeddings: number
     }
   }    // Fallback to local storage
   try {
-    await ensureStorageDir();
-      // Load existing documents to preserve them
-    let existingDocuments: any[] = [];
+    await ensureStorageDir();    // Load existing documents to preserve them
+    let existingDocuments: StoredDocument[] = [];
     if (fs.existsSync(STORAGE_FILE)) {
       const existingContent = await readFile(STORAGE_FILE, 'utf-8');
       existingDocuments = JSON.parse(existingContent);
@@ -204,10 +219,10 @@ export async function POST(req: Request) {
         } catch {
           console.log(`MongoDB: ❌ Connection failed`);
         }
-      }        if (fs.existsSync(STORAGE_FILE)) {
+      }      if (fs.existsSync(STORAGE_FILE)) {
         const localContent = await readFile(STORAGE_FILE, 'utf-8');
         const localChunks = JSON.parse(localContent);
-        const uniqueFilenames = new Set(localChunks.map((chunk: any) => chunk.metadata?.filename).filter(Boolean));
+        const uniqueFilenames = new Set(localChunks.map((chunk: StoredDocument) => chunk.metadata?.filename).filter(Boolean));
         console.log(`Local File: ✅ ${localChunks.length} total chunks from ${uniqueFilenames.size} documents`);
       }
       console.log('=== END STORAGE STATUS ===\n');      return NextResponse.json({ 
